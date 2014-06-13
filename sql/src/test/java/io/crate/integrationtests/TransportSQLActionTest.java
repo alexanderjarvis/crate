@@ -3790,13 +3790,17 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
                 "(1, 'Trillian', '1970-01-01'), " +
                 "(2, 'Arthur', '1970-01-07')");
         assertThat(response.rowCount(), is(2L));
+        ensureGreen();
 
+        // cannot tell what rows are visible
+        // could be none, could be all
         execute("select count(*) from parted");
-        assertThat((Long)response.rows()[0][0], is(0L));
+        assertThat((Long)response.rows()[0][0], lessThanOrEqualTo(2L));
 
         execute("refresh table parted");
         assertThat(response.rowCount(), is(-1L));
 
+        // assert that after refresh all inserted rows are available
         execute("select count(*) from parted");
         assertThat((Long)response.rows()[0][0], is(2L));
     }
@@ -3822,6 +3826,7 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
         execute("refresh table parted");
         assertThat(response.rowCount(), is(-1L));
 
+        // assert that after refresh all columns are available
         execute("select * from parted");
         assertThat(response.rowCount(), is(2L));
 
@@ -3830,20 +3835,22 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
                 "(4, 'Marvin', '1970-01-07')");
         assertThat(response.rowCount(), is(2L));
 
+        // cannot exactly tell which rows are visible
         execute("select * from parted");
-        assertThat(response.rowCount(), is(2L));
+        assertThat(response.rowCount(), lessThanOrEqualTo(4L));
 
         execute("refresh table parted PARTITION (date='1970-01-01')");
         assertThat(response.rowCount(), is(-1L));
 
-        execute("select * from parted");
-        assertThat(response.rowCount(), is(3L));
+        // assert this partition has been refreshed
+        execute("select * from parted where date='1970-01-01'");
+        assertThat(response.rowCount(), is(2L));
 
         execute("refresh table parted PARTITION (date='1970-01-07')");
         assertThat(response.rowCount(), is(-1L));
 
-        execute("select * from parted");
-        assertThat(response.rowCount(), is(4L));
+        execute("select * from parted where date='1970-01-07'");
+        assertThat(response.rowCount(), is(2L));
     }
 
 
@@ -3991,6 +3998,54 @@ public class TransportSQLActionTest extends SQLTransportIntegrationTest {
         execute("select count(*) from parted");
         assertThat(response.rowCount(), is(1L));
         assertThat((Long)response.rows()[0][0], is(2L));
+    }
+
+    @Test
+    public void testInsertFromQueryGlobalAggregate() throws Exception {
+        this.setup.setUpLocations();
+        execute("refresh table locations");
+
+        execute("create table aggs (" +
+                " c long," +
+                " s double" +
+                ") with (number_of_replicas=0)");
+        ensureGreen();
+        execute("select count(*), sum(position) from locations");
+        assertThat(response.rowCount(), is(1L));
+        assertThat((Long)response.rows()[0][0], is(13L));
+        assertThat((Double)response.rows()[0][1], is(38.0));
+
+        execute("insert into aggs (c, s) (select count(*), sum(position) from locations)");
+        assertThat(response.rowCount(), is(1L));
+
+        execute("refresh table aggs");
+        execute("select c, s from aggs");
+        assertThat(response.rowCount(), is(1L));
+        assertThat(((Number)response.rows()[0][0]).longValue(), is(13L));
+        assertThat((Double)response.rows()[0][1], is(38.0));
+    }
+
+    @Test
+    public void testInsertFromQueryCount() throws Exception {
+        this.setup.setUpLocations();
+        execute("refresh table locations");
+
+        execute("create table aggs (" +
+                " c long" +
+                ") with (number_of_replicas=0)");
+        ensureGreen();
+        execute("select count(*) from locations");
+        assertThat(response.rowCount(), is(1L));
+        assertThat((Long)response.rows()[0][0], is(13L));
+        assertThat((Double)response.rows()[0][1], is(38.0));
+
+        execute("insert into aggs (c) (select count(*) from locations)");
+        assertThat(response.rowCount(), is(1L));
+
+        execute("refresh table aggs");
+        execute("select c from aggs");
+        assertThat(response.rowCount(), is(1L));
+        assertThat(((Number)response.rows()[0][0]).longValue(), is(13L));
     }
 
 }
