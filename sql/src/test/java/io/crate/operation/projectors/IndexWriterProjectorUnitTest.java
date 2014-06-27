@@ -27,7 +27,10 @@ import io.crate.operation.Input;
 import io.crate.operation.collect.CollectExpression;
 import io.crate.operation.collect.InputCollectExpression;
 import org.apache.lucene.util.BytesRef;
-import org.elasticsearch.client.Client;
+import org.elasticsearch.action.admin.indices.create.TransportCreateIndexAction;
+import org.elasticsearch.action.bulk.TransportShardBulkAction;
+import org.elasticsearch.cluster.ClusterService;
+import org.elasticsearch.common.settings.ImmutableSettings;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -47,7 +50,10 @@ public class IndexWriterProjectorUnitTest {
         CollectExpression[] collectExpressions = new CollectExpression[]{ idInput, sourceInput };
 
         final IndexWriterProjector indexWriter = new IndexWriterProjector(
-                null,
+                mock(ClusterService.class),
+                ImmutableSettings.EMPTY,
+                mock(TransportShardBulkAction.class),
+                mock(TransportCreateIndexAction.class),
                 "bulk_import",
                 Arrays.asList(ID_IDENT),
                 Arrays.<Input<?>>asList(idInput),
@@ -79,7 +85,10 @@ public class IndexWriterProjectorUnitTest {
         InputCollectExpression<Object> routingInput = new InputCollectExpression<>(0);
         CollectExpression[] collectExpressions = new CollectExpression[]{ idInput, sourceInput, routingInput };
         final IndexWriterProjector indexWriter = new IndexWriterProjector(
-                mock(Client.class),
+                mock(ClusterService.class),
+                ImmutableSettings.EMPTY,
+                mock(TransportShardBulkAction.class),
+                mock(TransportCreateIndexAction.class),
                 "bulk_import",
                 Arrays.asList(ID_IDENT),
                 Arrays.<Input<?>>asList(idInput),
