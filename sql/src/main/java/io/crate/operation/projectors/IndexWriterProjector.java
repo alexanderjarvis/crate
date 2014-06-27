@@ -112,7 +112,13 @@ public class IndexWriterProjector implements Projector {
             indexRequest = buildRequest();
         }
         if (indexRequest != null) {
-            bulkProcessor.add(indexRequest);
+            Throwable failure = listener.failure.get();
+            if (failure == null) {
+                bulkProcessor.add(indexRequest);
+            } else {
+                upstreamFailed(failure);
+                return false;
+            }
         }
         return true;
     }
