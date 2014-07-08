@@ -357,7 +357,7 @@ public class TransportSQLAction extends TransportAction<SQLRequest, SQLResponse>
 
         @Override
         public String executor() {
-            return ThreadPool.Names.SAME;
+            return ThreadPool.Names.GENERIC;
         }
     }
 }
